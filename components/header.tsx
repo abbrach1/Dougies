@@ -6,54 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { ShoppingCart, User, LogOut, Shield, Menu, Home, Receipt } from "lucide-react"
-import { useState, useEffect } from "react"
-import { collection, onSnapshot } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-
-// Remove the static ADMIN_EMAILS constant
-// const ADMIN_EMAILS = ["abbrachfeld@gmail.com", "dovi@campsimcha.com"]
+import { useState } from "react"
+import { useAdminPermissions } from "@/hooks/use-admin-permissions"
 
 export default function Header() {
   const { user, loading, logout } = useAuth()
   const { cartCount } = useCart()
   const [isOpen, setIsOpen] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [adminLoading, setAdminLoading] = useState(true)
-
-  // System admins (permanent)
-  const SYSTEM_ADMINS = ["abbrachfeld@gmail.com", "dovi@campsimcha.com"]
-
-  // Check if user is admin (system admin or database admin)
-  useEffect(() => {
-    if (!user?.email) {
-      setIsAdmin(false)
-      setAdminLoading(false)
-      return
-    }
-
-    // Check if user is a system admin first
-    if (SYSTEM_ADMINS.includes(user.email)) {
-      setIsAdmin(true)
-      setAdminLoading(false)
-      return
-    }
-
-    // Check database for additional admin users
-    const unsubscribe = onSnapshot(collection(db, "adminUsers"), (snapshot) => {
-      const adminEmails = new Set<string>()
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        if (data.email) {
-          adminEmails.add(data.email.toLowerCase())
-        }
-      })
-
-      setIsAdmin(adminEmails.has(user.email!.toLowerCase()))
-      setAdminLoading(false)
-    })
-
-    return () => unsubscribe()
-  }, [user?.email])
+  // Admin status comes from the shared hook rather than a second copy of the
+  // lookup logic (and a second Firestore subscription) living here.
+  const { isAdmin, isLoading: adminLoading } = useAdminPermissions()
 
   const NavItems = () => (
     <>

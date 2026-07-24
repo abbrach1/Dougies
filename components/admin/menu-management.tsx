@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { MenuIcon, Plus, Edit, Trash2, Check, Settings, Zap, Package } from "lucide-react"
+import { MenuIcon, Plus, Edit, Trash2, Check } from "lucide-react"
 
 interface MenuManagementProps {
   permissions: AdminPermissions
@@ -297,227 +297,171 @@ export default function MenuManagement({ permissions }: MenuManagementProps) {
     )
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Simple Menu Switcher - Main Feature */}
-      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-800">
-            <Zap className="h-5 w-5" />
-            Switch Menu (What Customers See)
-          </CardTitle>
-          <CardDescription className="text-blue-700">
-            Currently showing: <strong>{getCurrentMenuName()}</strong> ({getVisibleProductCount()} dougies visible)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {/* Show All Dougies Option */}
-            <Button
-              onClick={() => handleSwitchMenu(null)}
-              disabled={switching === null}
-              variant={!menuSettings?.activeMenuId ? "default" : "outline"}
-              className="h-auto p-4 flex flex-col items-center gap-2"
-            >
-              {switching === null ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+  /**
+   * One row per menu option, combining "make this live" with edit/delete.
+   * Previously every menu was rendered twice — once as a switcher tile and
+   * again as a management row — which doubled the page and the reading work.
+   */
+  const MenuRow = ({
+    id,
+    name,
+    description,
+    count,
+    menu,
+  }: {
+    id: string | null
+    name: string
+    description?: string
+    count: number
+    menu?: Menu
+  }) => {
+    const isActive = (menuSettings?.activeMenuId ?? null) === id
+
+    return (
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 ${
+          isActive ? "border-primary bg-primary/5" : ""
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-semibold">{name}</h3>
+            {isActive && (
+              <Badge className="gap-1">
+                <Check className="h-3 w-3" />
+                Live
+              </Badge>
+            )}
+          </div>
+          {description && <p className="truncate text-sm text-muted-foreground">{description}</p>}
+          <p className="mt-1 text-xs text-muted-foreground">{count} dougies</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          {!isActive && permissions.editProducts && (
+            <Button size="sm" variant="outline" onClick={() => handleSwitchMenu(id)} disabled={switching === id}>
+              {switching === id ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-current" />
               ) : (
-                <MenuIcon className="h-5 w-5" />
-              )}
-              <div className="text-center">
-                <div className="font-medium">All Dougies</div>
-                <div className="text-xs opacity-75">{getTotalProducts()} total</div>
-              </div>
-              {!menuSettings?.activeMenuId && (
-                <Badge className="bg-green-100 text-green-800 text-xs">
-                  <Check className="h-3 w-3 mr-1" />
-                  Active
-                </Badge>
+                "Make Live"
               )}
             </Button>
-
-            {/* Unassigned Dougies Option */}
-            {getUnassignedProductCount() > 0 && (
-              <Button
-                onClick={() => handleSwitchMenu("unassigned")}
-                disabled={switching === "unassigned"}
-                variant={menuSettings?.activeMenuId === "unassigned" ? "default" : "outline"}
-                className="h-auto p-4 flex flex-col items-center gap-2"
-              >
-                {switching === "unassigned" ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                ) : (
-                  <Package className="h-5 w-5" />
-                )}
-                <div className="text-center">
-                  <div className="font-medium">Unassigned Dougies</div>
-                  <div className="text-xs opacity-75">{getUnassignedProductCount()} dougies</div>
-                </div>
-                {menuSettings?.activeMenuId === "unassigned" && (
-                  <Badge className="bg-green-100 text-green-800 text-xs">
-                    <Check className="h-3 w-3 mr-1" />
-                    Active
-                  </Badge>
-                )}
-              </Button>
-            )}
-
-            {/* Individual Menu Options */}
-            {menus.map((menu) => (
-              <Button
-                key={menu.id}
-                onClick={() => handleSwitchMenu(menu.id)}
-                disabled={switching === menu.id}
-                variant={menuSettings?.activeMenuId === menu.id ? "default" : "outline"}
-                className="h-auto p-4 flex flex-col items-center gap-2"
-              >
-                {switching === menu.id ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                ) : (
-                  <MenuIcon className="h-5 w-5" />
-                )}
-                <div className="text-center">
-                  <div className="font-medium">{menu.name}</div>
-                  <div className="text-xs opacity-75">{getProductCountForMenu(menu.id)} dougies</div>
-                </div>
-                {menuSettings?.activeMenuId === menu.id && (
-                  <Badge className="bg-green-100 text-green-800 text-xs">
-                    <Check className="h-3 w-3 mr-1" />
-                    Active
-                  </Badge>
-                )}
-              </Button>
-            ))}
-          </div>
-
-          {menus.length === 0 && getUnassignedProductCount() === 0 && (
-            <div className="text-center py-8 text-blue-600">
-              <MenuIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="font-medium">No custom menus or unassigned dougies</p>
-              <p className="text-sm">Create your first menu below to organize dougies</p>
-            </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Menu Management */}
+          {menu && permissions.editProducts && (
+            <Button variant="ghost" size="sm" onClick={() => handleEditMenu(menu)}>
+              <Edit className="h-4 w-4" />
+              <span className="sr-only">Edit {name}</span>
+            </Button>
+          )}
+
+          {menu && permissions.deleteProducts && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" disabled={isActive} className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Delete {name}</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this menu?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    &ldquo;{name}&rdquo; will be deleted and its dougies become unassigned. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleDeleteMenu(menu.id)}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Manage Menus
-              </CardTitle>
-              <CardDescription>Create and organize your menu collections</CardDescription>
-            </div>
-            {permissions.addProducts && (
-              <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Menu
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New Menu</DialogTitle>
-                    <DialogDescription>Create a themed collection of dougies</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="menu-name">Menu Name *</Label>
-                      <Input
-                        id="menu-name"
-                        value={newMenuForm.name}
-                        onChange={(e) => setNewMenuForm({ ...newMenuForm, name: e.target.value })}
-                        placeholder="e.g., Breakfast Special, Holiday Menu"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="menu-description">Description</Label>
-                      <Textarea
-                        id="menu-description"
-                        value={newMenuForm.description}
-                        onChange={(e) => setNewMenuForm({ ...newMenuForm, description: e.target.value })}
-                        placeholder="Describe this menu..."
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCreateMenu}>Create Menu</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MenuIcon className="h-5 w-5" />
+              What Customers See
+            </CardTitle>
+            <CardDescription>
+              Showing <strong>{getCurrentMenuName()}</strong> &middot; {getVisibleProductCount()} dougies live
+            </CardDescription>
           </div>
-        </CardHeader>
-        <CardContent>
-          {menus.length > 0 ? (
-            <div className="space-y-3">
-              {menus.map((menu) => (
-                <div key={menu.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold">{menu.name}</h3>
-                      {menuSettings?.activeMenuId === menu.id && (
-                        <Badge className="bg-green-100 text-green-800 text-xs">Active</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground">{menu.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {getProductCountForMenu(menu.id)} dougies • Created{" "}
-                      {new Date(menu.createdAt.seconds * 1000).toLocaleDateString()}
-                    </p>
+
+          {permissions.addProducts && (
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto">
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Menu
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create a menu</DialogTitle>
+                  <DialogDescription>Group dougies into a themed collection.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="menu-name">Name *</Label>
+                    <Input
+                      id="menu-name"
+                      value={newMenuForm.name}
+                      onChange={(e) => setNewMenuForm({ ...newMenuForm, name: e.target.value })}
+                      placeholder="e.g., Breakfast Special"
+                    />
                   </div>
-                  <div className="flex items-center gap-2">
-                    {permissions.editProducts && (
-                      <Button variant="outline" size="sm" onClick={() => handleEditMenu(menu)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {permissions.deleteProducts && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" disabled={menuSettings?.activeMenuId === menu.id}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Menu</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{menu.name}"? This will unassign all dougies from this
-                              menu. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteMenu(menu.id)}>Delete Menu</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
+                  <div className="space-y-2">
+                    <Label htmlFor="menu-description">Description</Label>
+                    <Textarea
+                      id="menu-description"
+                      value={newMenuForm.description}
+                      onChange={(e) => setNewMenuForm({ ...newMenuForm, description: e.target.value })}
+                      rows={2}
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <MenuIcon className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No menus created yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Create your first menu to organize dougies into themed collections
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Examples: "Breakfast Menu", "Lunch Specials", "Holiday Treats"
-              </p>
-            </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateMenu}>Create Menu</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           )}
+        </CardHeader>
+
+        <CardContent className="space-y-3">
+          <MenuRow id={null} name="All Dougies" description="Every dougie, regardless of menu" count={getTotalProducts()} />
+
+          {getUnassignedProductCount() > 0 && (
+            <MenuRow
+              id="unassigned"
+              name="Unassigned Only"
+              description="Dougies not in any menu"
+              count={getUnassignedProductCount()}
+            />
+          )}
+
+          {menus.map((menu) => (
+            <MenuRow
+              key={menu.id}
+              id={menu.id}
+              name={menu.name}
+              description={menu.description}
+              count={getProductCountForMenu(menu.id)}
+              menu={menu}
+            />
+          ))}
         </CardContent>
       </Card>
 

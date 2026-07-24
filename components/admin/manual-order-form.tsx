@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
-import { Plus, Minus, Trash2, UserPlus, ShoppingCart, AlertCircle } from "lucide-react"
+import { Plus, Minus, Trash2, ShoppingCart, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import type { Product, CartItem } from "@/lib/types"
 
@@ -26,7 +25,12 @@ type FormValues = {
   paymentNotes?: string
 }
 
-export default function ManualOrderForm() {
+interface ManualOrderFormProps {
+  /** Called after the order is created, so a hosting dialog can close. */
+  onSuccess?: () => void
+}
+
+export default function ManualOrderForm({ onSuccess }: ManualOrderFormProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [orderItems, setOrderItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -151,6 +155,7 @@ export default function ManualOrderForm() {
       // Reset form
       reset()
       setOrderItems([])
+      onSuccess?.()
     } catch (error) {
       console.error("Error creating manual order:", error)
       toast({
@@ -163,28 +168,14 @@ export default function ManualOrderForm() {
 
   if (loading) {
     return (
-      <Card>
-        <CardContent className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </CardContent>
-      </Card>
+      <div className="flex h-48 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+      </div>
     )
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Create Manual Order
-          </CardTitle>
-          <CardDescription>
-            Create an order on behalf of a customer. Manual orders bypass time restrictions and can be placed anytime.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Customer Information */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Customer Information</h3>
@@ -409,25 +400,22 @@ export default function ManualOrderForm() {
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end pt-4 border-t">
-              <Button type="submit" disabled={isSubmitting || orderItems.length === 0} size="lg">
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Creating Order...
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Create Order (${orderTotal.toFixed(2)})
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+      {/* Submit Button */}
+      <div className="border-t pt-4">
+        <Button type="submit" disabled={isSubmitting || orderItems.length === 0} size="lg" className="w-full">
+          {isSubmitting ? (
+            <>
+              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white" />
+              Creating Order...
+            </>
+          ) : (
+            <>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Create Order (${orderTotal.toFixed(2)})
+            </>
+          )}
+        </Button>
+      </div>
+    </form>
   )
 }

@@ -33,8 +33,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, Trash2, Package, Search, Filter, MenuIcon } from "lucide-react"
+import { Edit, Trash2, Package, Search, Filter } from "lucide-react"
 import Image from "next/image"
 
 interface ProductManagementProps {
@@ -89,20 +88,6 @@ export default function ProductManagement({ permissions }: ProductManagementProp
 
     return matchesSearch && matchesMenu
   })
-
-  const getProductsByMenu = () => {
-    const productsByMenu: { [key: string]: Product[] } = {}
-
-    // Group products by menu
-    menus.forEach((menu) => {
-      productsByMenu[menu.id] = products.filter((p) => p.menuId === menu.id)
-    })
-
-    // Add unassigned products
-    productsByMenu["unassigned"] = products.filter((p) => !p.menuId)
-
-    return productsByMenu
-  }
 
   const handleEdit = (product: Product) => {
     if (!permissions.editProducts) {
@@ -319,14 +304,12 @@ export default function ProductManagement({ permissions }: ProductManagementProp
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <CardContent className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
         </CardContent>
       </Card>
     )
   }
-
-  const productsByMenu = getProductsByMenu()
 
   return (
     <Card>
@@ -369,107 +352,30 @@ export default function ProductManagement({ permissions }: ProductManagementProp
       </CardHeader>
 
       <CardContent>
-        <Tabs defaultValue="list" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="list">List View</TabsTrigger>
-            <TabsTrigger value="menu">By Menu</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="list" className="space-y-4">
-            {filteredProducts.length > 0 ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    Showing {filteredProducts.length} of {products.length} dougies
-                  </p>
-                </div>
-                <div className="grid gap-4">
-                  {filteredProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <Package className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {searchTerm || selectedMenuFilter !== "all"
-                    ? "No dougies match your filters"
-                    : "No dougies available"}
-                </h3>
-                <p className="text-muted-foreground">
-                  {searchTerm || selectedMenuFilter !== "all"
-                    ? "Try adjusting your search or filter criteria."
-                    : "Add some dougies to get started."}
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="menu" className="space-y-6">
-            {menus.length > 0 || productsByMenu["unassigned"]?.length > 0 ? (
-              <div className="space-y-6">
-                {/* Unassigned Products */}
-                {productsByMenu["unassigned"]?.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Unassigned Dougies
-                        <Badge variant="secondary">{productsByMenu["unassigned"].length}</Badge>
-                      </CardTitle>
-                      <CardDescription>Dougies not assigned to any specific menu</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid gap-4">
-                        {productsByMenu["unassigned"].map((product) => (
-                          <ProductCard key={product.id} product={product} />
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Menu-specific Products */}
-                {menus.map((menu) => (
-                  <Card key={menu.id}>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <MenuIcon className="h-5 w-5" />
-                        {menu.name}
-                        <Badge variant="default">{productsByMenu[menu.id]?.length || 0}</Badge>
-                      </CardTitle>
-                      <CardDescription>{menu.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {productsByMenu[menu.id]?.length > 0 ? (
-                        <div className="grid gap-4">
-                          {productsByMenu[menu.id].map((product) => (
-                            <ProductCard key={product.id} product={product} />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <MenuIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-muted-foreground">No dougies assigned to this menu yet.</p>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            Edit existing dougies or add new ones to populate this menu.
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <MenuIcon className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No menus created yet</h3>
-                <p className="text-muted-foreground">Create menus to organize your dougies into categories.</p>
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        {filteredProducts.length > 0 ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredProducts.length} of {products.length} dougies
+            </p>
+            <div className="grid gap-4">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="py-12 text-center">
+            <Package className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
+            <h3 className="mb-2 text-lg font-semibold">
+              {searchTerm || selectedMenuFilter !== "all" ? "No dougies match your filters" : "No dougies yet"}
+            </h3>
+            <p className="text-muted-foreground">
+              {searchTerm || selectedMenuFilter !== "all"
+                ? "Try adjusting your search or filter."
+                : "Use “Add Dougie” to create your first one."}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )

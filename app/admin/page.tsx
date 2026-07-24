@@ -1,230 +1,95 @@
 "use client"
 
-import { useAuth } from "@/lib/hooks"
-import { useAdminPermissions } from "@/hooks/use-admin-permissions"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import AddProductForm from "@/components/admin/add-product-form"
-import OrderList from "@/components/admin/order-list"
-import ProductManagement from "@/components/admin/product-management"
-import MenuManagement from "@/components/admin/menu-management"
-import AdminStats from "@/components/admin/admin-stats"
-import OrderTimingSettings from "@/components/admin/order-timing-settings"
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore"
 import { db } from "@/lib/firebase"
-import type { Order } from "@/lib/types"
-import { Package, ShoppingBag, TrendingUp, Users, Clock, UserPlus, Settings, Shield, MenuIcon } from "lucide-react"
-import AdminUserManagement from "@/components/admin/admin-user-management"
+import { useAuth } from "@/lib/hooks"
+import { useAdminPermissions } from "@/hooks/use-admin-permissions"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import AdminStats from "@/components/admin/admin-stats"
+import OrderList from "@/components/admin/order-list"
 import ManualOrderForm from "@/components/admin/manual-order-form"
-import AdminPermissionsManagement from "@/components/admin/admin-permissions-management"
 import DailyExport from "@/components/admin/daily-export"
+import AddProductForm from "@/components/admin/add-product-form"
+import ProductManagement from "@/components/admin/product-management"
+import MenuManagement from "@/components/admin/menu-management"
+import OrderTimingSettings from "@/components/admin/order-timing-settings"
+import AdminTeam from "@/components/admin/admin-team"
+import type { Order } from "@/lib/types"
+import { ShoppingBag, UtensilsCrossed, Clock, Users, UserPlus, Download, Plus, Shield } from "lucide-react"
 
 export default function AdminPage() {
   const { user, loading } = useAuth()
-  const { permissions, isSuperAdmin, isLoading: permissionsLoading, hasPermission } = useAdminPermissions()
+  const { permissions, isAdmin, isSuperAdmin, isLoading: permissionsLoading, hasPermission } = useAdminPermissions()
   const router = useRouter()
   const [orders, setOrders] = useState<Order[]>([])
-  const [newOrdersCount, setNewOrdersCount] = useState(0)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [adminLoading, setAdminLoading] = useState(true)
+  const [manualOrderOpen, setManualOrderOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [addProductOpen, setAddProductOpen] = useState(false)
 
-  // System admins (permanent)
-  const SYSTEM_ADMINS = ["abbrachfeld@gmail.com", "dovi@campsimcha.com"]
+  const checkingAccess = loading || permissionsLoading
 
-  // Check if user is admin
+  // Redirect anyone who isn't an admin.
   useEffect(() => {
-    if (!user?.email) {
-      setIsAdmin(false)
-      setAdminLoading(false)
-      return
-    }
-
-    // Check if user is a system admin first
-    if (SYSTEM_ADMINS.includes(user.email)) {
-      setIsAdmin(true)
-      setAdminLoading(false)
-      return
-    }
-
-    // Check database for additional admin users
-    const unsubscribe = onSnapshot(collection(db, "adminUsers"), (snapshot) => {
-      const adminEmails = new Set<string>()
-      snapshot.forEach((doc) => {
-        const data = doc.data()
-        if (data.email) {
-          adminEmails.add(data.email.toLowerCase())
-        }
-      })
-
-      setIsAdmin(adminEmails.has(user.email!.toLowerCase()))
-      setAdminLoading(false)
-    })
-
-    return () => unsubscribe()
-  }, [user?.email])
-
-  // Redirect if not admin
-  useEffect(() => {
-    if (!loading && !adminLoading && (!user || !isAdmin)) {
+    if (!checkingAccess && (!user || !isAdmin)) {
       router.push("/")
     }
-  }, [user, loading, isAdmin, adminLoading, router])
+  }, [user, isAdmin, checkingAccess, router])
 
-  // Load orders if user is admin and has permission
+  // Live order feed (only when the admin may see orders).
+  const canViewOrders = hasPermission("viewOrders")
   useEffect(() => {
-    if (user && isAdmin && !adminLoading && !permissionsLoading && hasPermission("viewOrders")) {
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"))
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const ordersData: Order[] = []
-        let newOrders = 0
-        snapshot.forEach((doc) => {
-          const order = { id: doc.id, ...doc.data() } as Order
-          ordersData.push(order)
-          if (order.status === "Placed") newOrders++
-        })
-        setOrders(ordersData)
-        setNewOrdersCount(newOrders)
-      })
+    if (checkingAccess || !isAdmin || !canViewOrders) return
 
-      return () => unsubscribe()
-    }
-  }, [user, isAdmin, adminLoading, permissionsLoading, hasPermission])
+    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"))
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setOrders(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Order))
+    })
+    return () => unsubscribe()
+  }, [checkingAccess, isAdmin, canViewOrders])
 
-  // Show loading while checking admin status and permissions
-  if (loading || adminLoading || permissionsLoading || !user || !isAdmin) {
+  const newOrdersCount = useMemo(() => orders.filter((order) => order.status === "Placed").length, [orders])
+
+  /**
+   * Four tabs, each with one clear job. Anything an admin does occasionally
+   * (create a manual order, export, add a dougie) is a button inside the tab
+   * it belongs to rather than a tab of its own.
+   */
+  const tabs = [
+    canViewOrders && { value: "orders", label: "Orders", icon: ShoppingBag },
+    hasPermission("viewProducts") && { value: "menu", label: "Menu", icon: UtensilsCrossed },
+    hasPermission("manageOrderTiming") && { value: "schedule", label: "Schedule", icon: Clock },
+    hasPermission("manageAdminUsers") && { value: "team", label: "Team", icon: Users },
+  ].filter(Boolean) as { value: string; label: string; icon: typeof ShoppingBag }[]
+
+  if (checkingAccess || !user || !isAdmin) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
       </div>
     )
   }
 
-  // Get available tabs based on permissions
-  const getAvailableTabs = () => {
-    const tabs = []
-
-    if (hasPermission("viewOrders")) {
-      tabs.push({
-        value: "orders",
-        label: "Orders",
-        icon: ShoppingBag,
-        component: <OrderList orders={orders} permissions={permissions} />,
-      })
-    }
-
-    if (hasPermission("createManualOrders")) {
-      tabs.push({
-        value: "manual-order",
-        label: "Manual Order",
-        icon: UserPlus,
-        component: <ManualOrderForm />,
-      })
-    }
-
-    if (hasPermission("viewProducts")) {
-      tabs.push({
-        value: "products",
-        label: "Manage Dougies",
-        icon: Package,
-        component: <ProductManagement permissions={permissions} />,
-      })
-    }
-
-    if (hasPermission("addProducts")) {
-      tabs.push({
-        value: "add-product",
-        label: "Add Dougies",
-        icon: TrendingUp,
-        component: <AddProductForm />,
-      })
-    }
-
-    if (hasPermission("editProducts")) {
-      tabs.push({
-        value: "menus",
-        label: "Menu Control",
-        icon: MenuIcon,
-        component: <MenuManagement permissions={permissions} />,
-      })
-    }
-
-    if (hasPermission("manageOrderTiming")) {
-      tabs.push({
-        value: "timing",
-        label: "Timing",
-        icon: Clock,
-        component: <OrderTimingSettings />,
-      })
-    }
-
-    if (hasPermission("manageAdminUsers")) {
-      tabs.push({
-        value: "admins",
-        label: "Admins",
-        icon: Users,
-        component: <AdminUserManagement />,
-      })
-    }
-
-    if (isSuperAdmin) {
-      tabs.push({
-        value: "permissions",
-        label: "Permissions",
-        icon: Settings,
-        component: <AdminPermissionsManagement />,
-      })
-    }
-
-    if (hasPermission("viewAnalytics")) {
-      tabs.push({
-        value: "analytics",
-        label: "Analytics",
-        icon: Users,
-        component: (
-          <Card>
-            <CardHeader>
-              <CardTitle>Analytics</CardTitle>
-              <CardDescription>Detailed business insights coming soon</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Advanced analytics and reporting features will be available here.</p>
-            </CardContent>
-          </Card>
-        ),
-      })
-    }
-
-    if (hasPermission("exportOrderData")) {
-      tabs.push({
-        value: "export",
-        label: "Export",
-        icon: TrendingUp,
-        component: <DailyExport orders={orders} />,
-      })
-    }
-
-    return tabs
-  }
-
-  const availableTabs = getAvailableTabs()
-
-  if (availableTabs.length === 0) {
+  if (tabs.length === 0) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage your Camp Simcha Dougies business</p>
-        </div>
-
+        <h1 className="text-3xl font-bold">Admin</h1>
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            You don't have permission to access any admin features. Please contact a super administrator to grant you
-            the necessary permissions.
+            You don&apos;t have permission to access any admin features yet. Ask an owner to grant you access.
           </AlertDescription>
         </Alert>
       </div>
@@ -233,52 +98,127 @@ export default function AdminPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Camp Simcha Dougies Admin
+          <h1 className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-3xl font-bold text-transparent">
+            Admin
           </h1>
-          <div className="flex items-center gap-2">
-            <p className="text-muted-foreground">Manage your dougie ordering system</p>
-            {isSuperAdmin && (
-              <Badge variant="outline" className="text-xs bg-green-100 text-green-800">
-                Super Admin
-              </Badge>
-            )}
-          </div>
+          <p className="text-muted-foreground">Camp Simcha Dougies</p>
         </div>
-        {newOrdersCount > 0 && hasPermission("viewOrders") && (
-          <Badge variant="destructive" className="text-sm">
-            {newOrdersCount} New Order{newOrdersCount > 1 ? "s" : ""}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {newOrdersCount > 0 && canViewOrders && (
+            <Badge variant="destructive">
+              {newOrdersCount} pending order{newOrdersCount > 1 ? "s" : ""}
+            </Badge>
+          )}
+          {isSuperAdmin && <Badge variant="secondary">Owner</Badge>}
+        </div>
       </div>
 
-      {hasPermission("viewOrders") && <AdminStats orders={orders} />}
+      {canViewOrders && <AdminStats orders={orders} />}
 
-      <Tabs defaultValue={availableTabs[0]?.value} className="space-y-6">
-        {/* Scrollable on mobile/tablet so tabs aren't crushed; full-width grid on large screens. */}
-        <TabsList
-          className="flex lg:grid h-auto w-full justify-start gap-1 overflow-x-auto"
-          style={{ gridTemplateColumns: `repeat(${availableTabs.length}, minmax(0, 1fr))` }}
-        >
-          {availableTabs.map((tab) => (
+      <Tabs defaultValue={tabs[0].value} className="space-y-6">
+        {/* Scrollable on mobile so tabs are never crushed. */}
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto sm:grid sm:grid-cols-4">
+          {tabs.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap text-xs sm:text-sm lg:flex-shrink"
+              className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap sm:flex-shrink"
             >
               <tab.icon className="h-4 w-4" />
-              <span>{tab.label}</span>
+              {tab.label}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {availableTabs.map((tab) => (
-          <TabsContent key={tab.value} value={tab.value} className="space-y-6">
-            {tab.component}
+        {/* ── Orders ─────────────────────────────────────────────────────── */}
+        {canViewOrders && (
+          <TabsContent value="orders" className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {hasPermission("createManualOrders") && (
+                <Dialog open={manualOrderOpen} onOpenChange={setManualOrderOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      New Order
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Create an order</DialogTitle>
+                      <DialogDescription>
+                        Place an order for a customer. Manual orders ignore the ordering window.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <ManualOrderForm onSuccess={() => setManualOrderOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              )}
+
+              {hasPermission("exportOrderData") && (
+                <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Download className="mr-2 h-4 w-4" />
+                      Export
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                      <DialogTitle>Export orders</DialogTitle>
+                      <DialogDescription>Download a day&apos;s orders as a spreadsheet or JSON.</DialogDescription>
+                    </DialogHeader>
+                    <DailyExport orders={orders} />
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
+
+            <OrderList orders={orders} permissions={permissions} />
           </TabsContent>
-        ))}
+        )}
+
+        {/* ── Menu (dougies + which menu is live) ────────────────────────── */}
+        {hasPermission("viewProducts") && (
+          <TabsContent value="menu" className="space-y-6">
+            {hasPermission("addProducts") && (
+              <Dialog open={addProductOpen} onOpenChange={setAddProductOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Dougie
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Add a dougie</DialogTitle>
+                    <DialogDescription>It appears on the storefront as soon as you save.</DialogDescription>
+                  </DialogHeader>
+                  <AddProductForm onSuccess={() => setAddProductOpen(false)} />
+                </DialogContent>
+              </Dialog>
+            )}
+
+            <MenuManagement permissions={permissions} />
+            <ProductManagement permissions={permissions} />
+          </TabsContent>
+        )}
+
+        {/* ── Schedule ───────────────────────────────────────────────────── */}
+        {hasPermission("manageOrderTiming") && (
+          <TabsContent value="schedule">
+            <OrderTimingSettings />
+          </TabsContent>
+        )}
+
+        {/* ── Team ───────────────────────────────────────────────────────── */}
+        {hasPermission("manageAdminUsers") && (
+          <TabsContent value="team">
+            <AdminTeam canManagePermissions={isSuperAdmin} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )
