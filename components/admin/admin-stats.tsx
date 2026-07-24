@@ -34,51 +34,53 @@ export default function AdminStats({ orders }: AdminStatsProps) {
     }
   }, [orders])
 
+  const cards = [
+    {
+      title: "Total Revenue",
+      value: `$${stats.totalRevenue.toFixed(2)}`,
+      caption: "All time earnings",
+      icon: DollarSign,
+      accent: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      title: "Total Orders",
+      value: stats.totalOrders,
+      caption: `${stats.todayOrders} today`,
+      icon: ShoppingBag,
+      accent: "bg-primary/10 text-primary",
+    },
+    {
+      title: "Pending Orders",
+      value: stats.pendingOrders,
+      caption: "Need attention",
+      icon: Package,
+      accent: "bg-amber-100 text-amber-700",
+    },
+    {
+      title: "Completed",
+      value: stats.completedOrders,
+      caption: "Orders fulfilled",
+      icon: TrendingUp,
+      accent: "bg-sky-100 text-sky-700",
+    },
+  ]
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
-          <p className="text-xs text-muted-foreground">All time earnings</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-          <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.totalOrders}</div>
-          <p className="text-xs text-muted-foreground">{stats.todayOrders} today</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-          <Package className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.pendingOrders}</div>
-          <p className="text-xs text-muted-foreground">Need attention</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Completed</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.completedOrders}</div>
-          <p className="text-xs text-muted-foreground">Orders fulfilled</p>
-        </CardContent>
-      </Card>
+      {cards.map((card) => (
+        <Card key={card.title} className="transition-shadow hover:shadow-md">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">{card.title}</CardTitle>
+            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${card.accent}`}>
+              <card.icon className="h-4 w-4" />
+            </span>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{card.value}</div>
+            <p className="text-xs text-muted-foreground">{card.caption}</p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   )
 }

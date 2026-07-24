@@ -208,7 +208,7 @@ export default function HomePage() {
         {!user && (
           <div className="pt-4">
             <Link href="/login">
-              <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+              <Button size="lg" className="shadow-sm">
                 <Users className="mr-2 h-4 w-4" />
                 Log In to Order
               </Button>

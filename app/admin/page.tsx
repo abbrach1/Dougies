@@ -235,7 +235,9 @@ export default function AdminPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Camp Simcha Dougies Admin</h1>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Camp Simcha Dougies Admin
+          </h1>
           <div className="flex items-center gap-2">
             <p className="text-muted-foreground">Manage your dougie ordering system</p>
             {isSuperAdmin && (

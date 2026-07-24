@@ -45,8 +45,8 @@ export default function RootLayout({
                   {children}
                 </Suspense>
               </main>
-              <footer className="bg-gray-100 dark:bg-gray-800 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
-                © 2025 Camp Simcha Dougies. All Rights Reserved.
+              <footer className="border-t bg-muted/40 py-6 text-center text-sm text-muted-foreground">
+                © {new Date().getFullYear()} Camp Simcha Dougies. All Rights Reserved.
               </footer>
             </div>
             <Toaster />
