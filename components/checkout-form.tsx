@@ -230,7 +230,7 @@ export default function CheckoutForm({ cart, cartTotal, onSubmitOrder, isSubmitt
                   maxLength={500}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">{formData.specialInstructions.length}/500 characters</p>
+              <p className="text-xs text-muted-foreground">{(formData.specialInstructions ?? "").length}/500 characters</p>
             </div>
 
             {/* Order Summary */}

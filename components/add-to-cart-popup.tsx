@@ -14,12 +14,12 @@ import { Badge } from "@/components/ui/badge"
 import { ShoppingCart, ArrowRight, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
-import type { CartItem } from "@/lib/types"
+import type { Product } from "@/lib/types"
 
 interface AddToCartPopupProps {
   isOpen: boolean
   onClose: () => void
-  addedItem: CartItem | null
+  addedItem: Product | null
   cartCount: number
   cartTotal: number
 }

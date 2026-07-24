@@ -1,27 +1,31 @@
 "use server"
 
-import { Resend } from "resend"
 import type { OrderData, Order } from "@/lib/types"
+import { getResendClient, FROM_EMAIL, ADMIN_EMAILS } from "@/lib/email-config"
 import OrderConfirmationEmail from "@/components/emails/order-confirmation-email"
 import NewOrderAdminEmail from "@/components/emails/new-order-admin-email"
 import OrderArrivedEmail from "@/components/emails/order-arrived-email"
 
-const resend = new Resend("re_5MpFR8fG_9MfChisSYX9J4r8v7de49p3S")
-const FROM_EMAIL = "dougies@abbrachfeld.com"
-const ADMIN_EMAILS = ["abbrachfeld@gmail.com", "kobygryfe@gmail.com"]
-
 export async function placeOrder(orderData: OrderData) {
+  const orderWithTimestamp = {
+    ...orderData,
+    status: "Placed",
+    createdAt: new Date(),
+  }
+
+  // Generate a simple order ID
+  const orderId = Date.now().toString()
+
+  const resend = getResendClient()
+
+  // Email is best-effort: the order has already been saved to the database by
+  // the caller, so a delivery failure must not fail the whole order.
+  if (!resend) {
+    return { success: true, orderId, emailSent: false }
+  }
+
   try {
-    const orderWithTimestamp = {
-      ...orderData,
-      status: "Placed",
-      createdAt: new Date(),
-    }
-
-    // Generate a simple order ID
-    const orderId = Date.now().toString()
-
-    // Send confirmation email to customer
+    // Send confirmation email to the customer.
     await resend.emails.send({
       from: FROM_EMAIL,
       to: orderData.userEmail,
@@ -29,28 +33,33 @@ export async function placeOrder(orderData: OrderData) {
       react: OrderConfirmationEmail({ order: orderWithTimestamp, orderId }),
     })
 
-    // Send notification email to all admins
-    const adminEmailPromises = ADMIN_EMAILS.map((adminEmail) =>
-      resend.emails.send({
-        from: FROM_EMAIL,
-        to: adminEmail,
-        subject: `New Camp Simcha Dougies Order #${orderId.substring(0, 6)}`,
-        react: NewOrderAdminEmail({ order: orderWithTimestamp, orderId }),
-      }),
+    // Notify every admin.
+    await Promise.all(
+      ADMIN_EMAILS.map((adminEmail) =>
+        resend.emails.send({
+          from: FROM_EMAIL,
+          to: adminEmail,
+          subject: `New Camp Simcha Dougies Order #${orderId.substring(0, 6)}`,
+          react: NewOrderAdminEmail({ order: orderWithTimestamp, orderId }),
+        }),
+      ),
     )
 
-    await Promise.all(adminEmailPromises)
-
-    return { success: true, orderId }
+    return { success: true, orderId, emailSent: true }
   } catch (error) {
-    console.error("Error placing order:", error)
-    throw new Error("Could not place order.")
+    console.error("[email] Error sending order confirmation:", error)
+    // Order is already persisted; report success but flag the email failure.
+    return { success: true, orderId, emailSent: false }
   }
 }
 
 export async function markOrderAsArrived(orderId: string, customerEmail: string, customerName?: string) {
+  const resend = getResendClient()
+  if (!resend) {
+    return { success: true, emailSent: false }
+  }
+
   try {
-    // Send "arrived" notification to customer only
     await resend.emails.send({
       from: FROM_EMAIL,
       to: customerEmail,
@@ -61,34 +70,45 @@ export async function markOrderAsArrived(orderId: string, customerEmail: string,
       }),
     })
 
-    return { success: true }
+    return { success: true, emailSent: true }
   } catch (error) {
-    console.error("Error sending arrival notification:", error)
-    throw new Error("Could not send arrival notification.")
+    console.error("[email] Error sending arrival notification:", error)
+    return { success: false, emailSent: false }
   }
 }
 
 export async function bulkMarkOrdersAsArrived(orders: Order[]) {
+  const resend = getResendClient()
+  if (!resend) {
+    return { success: true, count: orders.length, emailSent: false }
+  }
+
   try {
-    // Send individual emails to each customer only
-    const emailPromises = orders.map((order) =>
-      resend.emails.send({
-        from: FROM_EMAIL,
-        to: order.userEmail,
-        subject: `Your Camp Simcha Dougies Order #${order.id.substring(0, 6)} has arrived! 📦`,
-        react: OrderArrivedEmail({
-          orderId: order.id,
-          customerName: order.userName || "Customer",
+    // Send an individual arrival email to each customer.
+    const results = await Promise.allSettled(
+      orders.map((order) =>
+        resend.emails.send({
+          from: FROM_EMAIL,
+          to: order.userEmail,
+          subject: `Your Camp Simcha Dougies Order #${order.id.substring(0, 6)} has arrived! 📦`,
+          react: OrderArrivedEmail({
+            orderId: order.id,
+            customerName: order.userName || "Customer",
+          }),
         }),
-      }),
+      ),
     )
 
-    await Promise.all(emailPromises)
+    const sent = results.filter((r) => r.status === "fulfilled").length
+    const failed = results.length - sent
+    if (failed > 0) {
+      console.error(`[email] ${failed} of ${results.length} bulk arrival notifications failed to send.`)
+    }
 
-    // No admin email sent here - only when time frame closes
-    return { success: true, count: orders.length }
+    // No admin email sent here - only when the time frame closes.
+    return { success: true, count: sent, emailSent: sent > 0 }
   } catch (error) {
-    console.error("Error sending bulk arrival notifications:", error)
-    throw new Error("Could not send bulk arrival notifications.")
+    console.error("[email] Error sending bulk arrival notifications:", error)
+    return { success: false, count: 0, emailSent: false }
   }
 }

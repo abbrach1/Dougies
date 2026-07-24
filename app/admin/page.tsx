@@ -255,14 +255,19 @@ export default function AdminPage() {
       {hasPermission("viewOrders") && <AdminStats orders={orders} />}
 
       <Tabs defaultValue={availableTabs[0]?.value} className="space-y-6">
+        {/* Scrollable on mobile/tablet so tabs aren't crushed; full-width grid on large screens. */}
         <TabsList
-          className="grid w-full gap-1"
+          className="flex lg:grid h-auto w-full justify-start gap-1 overflow-x-auto"
           style={{ gridTemplateColumns: `repeat(${availableTabs.length}, minmax(0, 1fr))` }}
         >
           {availableTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2 text-xs sm:text-sm">
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="flex flex-shrink-0 items-center gap-2 whitespace-nowrap text-xs sm:text-sm lg:flex-shrink"
+            >
               <tab.icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span>{tab.label}</span>
             </TabsTrigger>
           ))}
         </TabsList>

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import type { Metadata, Viewport } from "next"
 import { Inter } from 'next/font/google'
 import { Suspense } from 'react'
 import "./globals.css"
@@ -10,10 +11,19 @@ import { Analytics } from '@vercel/analytics/react'
 
 const inter = Inter({ subsets: ["latin"] })
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Camp Simcha Dougies",
   description: "Order your favorite Camp Simcha Dougies online!",
-    generator: 'v0.app'
+  generator: 'v0.app',
+}
+
+// Mobile-first viewport. `maximumScale: 5` keeps pinch-zoom available for
+// accessibility instead of disabling it.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#ffffff",
 }
 
 export default function RootLayout({

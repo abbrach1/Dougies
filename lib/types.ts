@@ -5,6 +5,7 @@ export interface Product {
   price: number
   imageUrl: string
   menuId?: string // Optional menu assignment
+  available?: boolean // When false, the product is hidden from the storefront
 }
 
 export interface CartItem extends Product {
@@ -49,7 +50,9 @@ export interface OrderData {
   specialInstructions?: string
   items: CartItem[]
   total: number
-  paymentStatus: "Unpaid" // Always start as unpaid
+  // Customer orders always start as "Unpaid"; admin-created manual orders may
+  // be recorded as "Paid" up front.
+  paymentStatus: "Unpaid" | "Paid"
 }
 
 // New Menu interface
